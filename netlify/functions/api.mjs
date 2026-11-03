@@ -37,6 +37,7 @@ async function publicPayload(){
  const sessions=rows(await db(`game_sessions?code=eq.${SESSION}&select=id,code,title,state,active_crisis`));
  if(!sessions[0])throw Error('ไม่พบกิจกรรม SUKHOTHAI2050');
  const id=sessions[0].id;
+ const scoresVisible=['results','closed'].includes(sessions[0].state);
  const [teams,projects,priorities,scores,featured,snapshots,progress,crisisResults,teamIssues,issueLinks] = await Promise.all([
   db(`teams?session_id=eq.${id}&is_active=eq.true&select=id,team_number,display_name,budget_total,max_players&order=team_number.asc`),
   db(`projects?session_id=eq.${id}&select=id,code,name_th,description_th,cost,is_active&order=code.asc`),
@@ -51,10 +52,10 @@ async function publicPayload(){
  ]);
  const ids=new Set(rows(teams).map(x=>x.id));
  // Never reveal a champion before the host opens Mission 06.
- const finalRankings=['results','closed'].includes(sessions[0].state)
+ const finalRankings=scoresVisible
    ? rows(await db(`v6_final_scores?session_id=eq.${id}&eligible=eq.true&select=team_id,team_number,display_name,before_score,shock_score,after_score,grand_total,remaining_budget,place&order=place.asc`))
    : [];
- return {session:sessions[0],teams:rows(teams),projects:rows(projects).filter(x=>x.is_active),priorities:rows(priorities).filter(x=>x.is_active),scores:rows(scores).filter(x=>ids.has(x.team_id)),snapshots:rows(snapshots).filter(x=>ids.has(x.team_id)),crisesCompleted:rows(progress)[0]?.crises_completed??0,crisisResults:rows(crisisResults).filter(x=>ids.has(x.team_id)),teamIssues:rows(teamIssues).filter(x=>ids.has(x.team_id)),issueLinks:rows(issueLinks),featured:rows(featured)[0]||null,finalRankings};
+ return {session:sessions[0],teams:rows(teams),projects:rows(projects).filter(x=>x.is_active),priorities:rows(priorities).filter(x=>x.is_active),scores:scoresVisible?rows(scores).filter(x=>ids.has(x.team_id)):[],snapshots:scoresVisible?rows(snapshots).filter(x=>ids.has(x.team_id)):[],crisesCompleted:rows(progress)[0]?.crises_completed??0,crisisResults:scoresVisible?rows(crisisResults).filter(x=>ids.has(x.team_id)):[],teamIssues:rows(teamIssues).filter(x=>ids.has(x.team_id)),issueLinks:scoresVisible?rows(issueLinks):[],featured:rows(featured)[0]||null,finalRankings};
 }
 async function myState(payload){
  const me=await rpc('game_me',{p_token_hash:tokenHash(payload)});

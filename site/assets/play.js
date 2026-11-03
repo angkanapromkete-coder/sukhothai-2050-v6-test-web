@@ -11,9 +11,6 @@ function investmentCard(p,selectedIds=[]){
  return `<div class="card project" style="${hit?'border:2px solid #1f978c;background:#ebf7f2':''}"><div class="tag">${safe(p.code)} · ${p.cost} เหรียญ</div><h3>${safe(p.name_th)}</h3><p class="muted tiny" style="flex:1;margin:0">${safe(p.description_th)}</p><button class="btn ${hit?'alt':''} sm" data-team="${safe(p.id)}" ${!canEdit?'disabled':''}>${hit?'ลบออกจากแผน':'ลงทุนมาตรการนี้'}</button></div>`;
 }
 function issueName(){const t=pub?.teamIssues?.find(x=>x.team_id===mine?.me?.team_id);return pub?.priorities?.find(p=>p.id===t?.priority_id)?.name_th||'ยังไม่มีผลโหวตของทีม'}
-function alignmentPreview(choices){const issue=pub?.teamIssues?.find(x=>x.team_id===mine?.me?.team_id)?.priority_id;
- if(!issue)return 0;const sum=choices.reduce((n,c)=>n+(c.cost||0)*(pub?.issueLinks?.find(l=>l.priority_id===issue&&l.project_id===c.project_id)?.relevance||0),0);
- return Math.min(100,Math.round(sum/50*100));}
 function stat(phase){if(!mine)return '–';return snapOf(pub.snapshots||[],mine.me.team_id,phase)??'–'}
 function render(){if(!pub)return;
  const stage=pub.session.state;$('#stage').textContent=stateTH(stage);$('#steps').innerHTML=steps(stage);
@@ -36,7 +33,7 @@ function render(){if(!pub)return;
   $('#planTitle').textContent=stage==='replan'?'ปรับแผนให้รับมือ 3 วิกฤต':'เลือกมาตรการพัฒนาเมืองภายในงบ 10 เหรียญ';
   const team=pub.teams.find(t=>t.id===mine?.me?.team_id);const max=team?.budget_total||10;
   $('#budget').textContent=`ใช้ ${spent} / ${max} เหรียญ`;
-  $('#alignmentNote').textContent=`ปัญหาหลักของทีม: ${issueName()} · ความสอดคล้องของการลงทุน: ${alignmentPreview(choices)}/100 (คิดเป็น 20% ของคะแนนแต่ละช่วง)`;
+  $('#alignmentNote').textContent=`ปัญหาหลักของทีม: ${issueName()} · ระบบประเมินความสอดคล้องของแผนโดยอัตโนมัติ (ซ่อนคะแนนจนกว่าจะประกาศผลภารกิจ 06)`;
   $('#budgetProgress').style.width=`${spent/max*100}%`;
   $('#leaderNote').textContent=mine?.me?.is_leader?'คุณเป็นหัวหน้าทีม กดเพิ่มหรือลบโครงการได้ในรอบนี้ ระบบบันทึกทันที':'สมาชิกช่วยกันเสนอแผน แต่หัวหน้าทีมเป็นผู้กดเลือก/แก้แผน';
   $('#teamProjects').innerHTML=pub.projects.map(p=>investmentCard(p,choices.map(x=>x.project_id))).join('');
@@ -44,13 +41,15 @@ function render(){if(!pub)return;
  }
  if(['crisis','replan','ideas','results'].includes(stage)){
   $('#crisisName').textContent='ผลทดสอบ '+(pub.crisesCompleted||0)+'/3 วิกฤต · ล่าสุด '+crisisTH(pub.session.active_crisis);
-  const v6rows=(pub.crisisResults||[]).filter(x=>x.team_id===mine?.me?.team_id);
-  $('#crisisList').innerHTML=['flood','drought','heat'].map(c=>{
+  const final=['results','closed'].includes(stage);
+  const v6rows=final?(pub.crisisResults||[]).filter(x=>x.team_id===mine?.me?.team_id):[];
+  $('#crisisList').innerHTML=['flood','drought','heat'].map((c,i)=>{
+   if(!final)return `<div class="listrow"><b>${crisisTH(c)}</b><span>${i<(pub.crisesCompleted||0)?'ทดสอบแล้ว':'รอทดสอบ'} · ซ่อนคะแนน</span></div>`;
    const a=v6rows.find(x=>x.phase==='initial'&&x.crisis===c);
    const b=v6rows.find(x=>x.phase==='revised'&&x.crisis===c);
    return `<div class="listrow"><b>${crisisTH(c)}</b><span>แผนแรก: ${a?.score??'–'} / 100 · หลังปรับ: ${b?.score??'–'} / 100</span></div>`;
   }).join('');
-  $('#crisisScore').innerHTML=[['ก่อนวิกฤต',stat('before')],['หลังวิกฤต',stat('shock')],['หลังปรับแผน',stat('after')]].map(x=>`<div class="score-stat"><small>${safe(x[0])}</small><strong>${safe(x[1])}</strong><small>จาก 100</small></div>`).join('');
+  $('#crisisScore').innerHTML=final?[['ก่อนวิกฤต',stat('before')],['หลังวิกฤต',stat('shock')],['หลังปรับแผน',stat('after')]].map(x=>`<div class="score-stat"><small>${safe(x[0])}</small><strong>${safe(x[1])}</strong><small>จาก 100</small></div>`).join(''):'<p class="muted">คะแนนทั้งสามช่วงจะเปิดเผยเมื่อ Host เริ่มภารกิจ 06 เท่านั้น</p>';
  }
  if(['results','closed'].includes(stage)){
   const r=(pub.finalRankings||[]).find(x=>x.team_id===mine?.me?.team_id);

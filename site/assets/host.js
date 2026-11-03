@@ -24,22 +24,21 @@ function render(){if(!data)return;const stage=data.session.state;
  $('#players').innerHTML=data.teams.map(t=>{const ppl=data.players.filter(p=>p.team_id===t.id);return `<div class="listrow"><b>${safe(t.display_name)} (${ppl.length}/${t.max_players||10})</b><div class="qflex" style="margin-top:8px">${ppl.length?ppl.map(p=>`<button class="btn sm ${p.is_team_leader?'':'alt'}" data-leader="${p.id}" ${p.is_team_leader?'disabled':''}>${p.is_team_leader?'★ ':''}${safe(p.nickname)}</button>`).join(''):'<span class="muted tiny">ยังไม่มีผู้เล่น</span>'}</div></div>`}).join('');
  document.querySelectorAll('[data-leader]').forEach(b=>b.onclick=()=>{if(confirm('ตั้งเป็นหัวหน้าทีมแทนคนเดิม?'))act('hostLeader',{playerId:b.dataset.leader})});
  const total=data.votes.length;$('#votes').innerHTML=(data.priorities||[]).map(p=>{let count=data.votes.filter(v=>v.priority_id===p.id).length;return `<div class="listrow"><b>${safe(p.name_th)}</b> · ${count} เสียง<div class="bar"><div style="width:${total?count/total*100:0}%"></div></div></div>`}).join('')+`<p class="tiny muted">รวม ${total} โหวต</p>`+data.votes.map(v=>{let p=data.players.find(x=>x.id===v.player_id);let proj=(data.priorities||[]).find(x=>x.id===v.priority_id);return `<div class="listrow"><b>${safe(p?.nickname||'ผู้เล่น')} · ${safe(teamName(p?.team_id))}</b><div>${safe(proj?.name_th||'')}</div><div class="tiny muted">${safe(v.rationale)}</div></div>`}).join('');
+ const finished=['results','closed'].includes(stage);
  const cNames={flood:'น้ำท่วม',drought:'ภัยแล้ง',heat:'คลื่นความร้อน'};
  const v6c=data.crisisResults||[];
- $('#crisisDetailsHost').innerHTML=v6c.length?'<h3>ผลทดสอบแต่ละวิกฤต (คะแนนเต็ม 100)</h3>'+data.teams.map(t=>{
+ $('#crisisDetailsHost').innerHTML=!finished?`<p class="muted">ทดสอบแล้ว ${data.crisesCompleted||0}/3 วิกฤต · คะแนนจะประกาศในภารกิจ 06</p>`:v6c.length?'<h3>ผลทดสอบแต่ละวิกฤต (คะแนนเต็ม 100)</h3>'+data.teams.map(t=>{
  const a=v6c.filter(x=>x.team_id===t.id&&x.phase==='initial');
  const b=v6c.filter(x=>x.team_id===t.id&&x.phase==='revised');
  return `<div class="listrow"><b>${safe(t.display_name)}</b><p class="tiny muted">แผนแรก: ${a.map(x=>`${cNames[x.crisis]} ${x.score}`).join(' · ')||'ยังไม่ทดสอบ'}<br>แผนปรับ: ${b.map(x=>`${cNames[x.crisis]} ${x.score}`).join(' · ')||'ยังไม่มี'}</p></div>`;
  }).join(''):'<p class="muted">ยังไม่มีการทดสอบวิกฤต</p>';
- const finished=['results','closed'].includes(stage);
  if(finished){
   const rank=data.finalRankings||[];
   $('#winnerHost').innerHTML=rank.length?`<div class="champion-box"><div class="tag">🏆 CHAMPION · ทีมชนะเลิศเพียงทีมเดียว</div><h2>${safe(rank[0].display_name)}</h2><div class="kpi">${rank[0].grand_total} / 300 คะแนน</div><p>ก่อนวิกฤต ${rank[0].before_score} + หลังวิกฤต ${rank[0].shock_score} + หลังปรับแผน ${rank[0].after_score}</p></div>`:'<p class="muted">ยังไม่มีทีมที่มีคะแนนครบทั้งสามช่วง</p>';
   $('#rankings').innerHTML='<div class="final-row"><b>อันดับ / ทีม</b><b>ก่อน</b><b>วิกฤต</b><b>ปรับแผน</b><b>รวม / 300</b></div>'+rank.map(t=>`<div class="final-row"><b>${t.place===1?'🏆 ':''}${t.place}. ${safe(t.display_name)}</b><span>${t.before_score}</span><span>${t.shock_score}</span><span>${t.after_score}</span><b>${t.grand_total}</b></div>`).join('');
  } else {
   $('#winnerHost').innerHTML='<p class="muted tiny">ระบบจะประกาศทีมชนะเลิศเพียงทีมเดียวเมื่อ Host เปิดภารกิจ 06</p>';
-  const ranking=data.teams.map(t=>({...t,total:scoreOf(data.scores,t.id)??0,before:snapOf(data.snapshots,t.id,'before'),shock:snapOf(data.snapshots,t.id,'shock'),after:snapOf(data.snapshots,t.id,'after')})).sort((a,b)=>b.total-a.total||a.team_number-b.team_number);
-  $('#rankings').innerHTML='<div class="comparison-row"><b>ทีม</b><b>ก่อนวิกฤต</b><b>หลังวิกฤต</b><b>หลังปรับ</b></div>'+ranking.map(t=>`<div class="comparison-row"><b>${safe(t.display_name)}</b><span>${t.before??'–'}</span><span>${t.shock??'–'}</span><b>${t.after??'–'}</b></div>`).join('');
+   $('#rankings').innerHTML='<p class="muted">ซ่อนคะแนนและอันดับของทุกทีมจนกว่า Host จะเปิดภารกิจ 06</p>';
  }
  const pending=data.ideas.filter(x=>x.status==='pending');$('#pending').innerHTML=pending.length?pending.map(i=>{const p=data.players.find(x=>x.id===i.player_id);return `<div class="listrow"><div class="tag">${safe(teamName(i.team_id))} · ${safe(p?.nickname||'ผู้เล่น')} · ${p?.display_consent?'อนุญาตให้แสดงชื่อ':'ไม่แสดงชื่อ'}</div><p>${safe(i.body)}</p><div class="qflex"><button class="btn sm" data-ok="${i.id}">อนุมัติ</button><button class="btn sm alt" data-show="${i.id}">อนุมัติและขึ้นจอ</button><button class="btn sm warn" data-no="${i.id}">ไม่อนุมัติ</button></div></div>`}).join(''):'<p class="muted">ยังไม่มีข้อเสนอรอตรวจ</p>';
  document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>act('hostModerate',{ideaId:b.dataset.ok,approve:true,show:false}));
